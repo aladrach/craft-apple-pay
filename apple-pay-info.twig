@@ -1,0 +1,116 @@
+{% if name == "Apple Pay" %}
+	<li class="CartCheckout-applePay" id="apple-pay-option" style="display: none;">
+		<h5 class="CartCheckout-title">
+	    	<div id="apple-pay-header"></div>
+	    </h5>
+		<style>
+		  #apple-pay-button {
+		    display: block;
+		    background-color: black;
+		    background-image: -webkit-named-image(apple-pay-logo-white);
+		    background-size: 100% 100%;
+		    background-origin: content-box;
+		    background-repeat: no-repeat;
+		    width: 100%;
+		    height: 44px;
+		    padding: 10px 0;
+		    border-radius: 10px;
+		  }
+		</style>
+
+		<style>
+		  #apple-pay-header {
+		    display: block;
+		    background-color: transparent;
+		    background-image: -webkit-named-image(apple-pay-logo-black);
+		    background-size: 100% 100%;
+		    background-origin: content-box;
+		    background-repeat: no-repeat;
+		    width: 60px;
+		    height: 44px;
+		    padding: 10px 0;
+		    border-radius: 10px;
+		  }
+		</style>
+		
+		<div class="CartCheckout-details">
+			<form method="POST" id="ApplePayCheckout--update">
+	        	<input type="hidden" name="action" value="commerce/cart/updateCart"/>
+	            <input type="hidden" name="orderNumber" value="{{ cart.number }}"/>
+	        	<input type="hidden" name="paymentMethodId" value="{{ id }}">
+	        	<input type="hidden" name="shippingAddressId" value="new">
+	        	<input type="hidden" name="sameAddress" value="1">
+	        	{{ getCsrfInput() }}
+	        </form>
+	        <form method="POST" id="ApplePayCheckout--checkout">
+	            <input type="hidden" name="action" value="commerce/payments/pay"/>
+	            <input type="hidden" name="orderNumber" value="{{ cart.number }}"/>
+	            <input type="hidden" name="paymentMethodId" value="{{ id }}">
+	            <input type="hidden" name="redirect" value="checkout/receipt?number={{ cart.number }}">
+	            {{ getCsrfInput() }}
+				<a id="apple-pay-button"></a>
+	        </form>
+	        
+	    </div>
+
+	    <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+		{% set publishableKey = '' %}
+		{% for method in craft.commerce.paymentMethods %}
+			{% if method.id == 5 %}
+				{% set publishableKey = method.settings.publishableKey %}
+			{% endif %}
+		{% endfor %}
+	    <script>
+	    	Stripe.setPublishableKey('{{publishableKey}}');
+
+			Stripe.applePay.checkAvailability(function(available) {
+			  if (available) {
+			    document.getElementById('apple-pay-option').style.display = 'block';
+			  }
+			});
+
+			document.getElementById('apple-pay-button').addEventListener('click', beginApplePay);
+
+			function beginApplePay() {
+			  var paymentRequest = {
+			    countryCode: 'US',
+			    currencyCode: 'USD',
+			    requiredShippingContactFields: ["postalAddress","name","phone","email"],
+			    total: {
+			      label: 'SITE NAME HERE',
+			      amount: '{{cart.totalPrice|round(2)}}'
+			    }
+			  };
+			  var session = Stripe.applePay.buildSession(paymentRequest,
+			    function(result, completion) {
+
+			      completion(ApplePaySession.STATUS_SUCCESS);
+			      var $form = $('#ApplePayCheckout--checkout');
+			      var $form2 = $('#ApplePayCheckout--update');
+				  $form2.append($('<input type="hidden" name="email" />').val(result.shippingContact.emailAddress));
+				  $form2.append($('<input type="hidden" name="shippingAddress[firstName]" />').val(result.shippingContact.givenName));
+				  $form2.append($('<input type="hidden" name="shippingAddress[lastName]" />').val(result.shippingContact.familyName));
+				  $form2.append($('<input type="hidden" name="shippingAddress[address1]" />').val(result.shippingContact.addressLines[0]));
+				  $form2.append($('<input type="hidden" name="shippingAddress[address2]" />').val(result.shippingContact.addressLines[1]));
+				  $form2.append($('<input type="hidden" name="shippingAddress[city]" />').val(result.shippingContact.locality));
+				  $form2.append($('<input type="hidden" name="shippingAddress[state]" />').val(result.shippingContact.administrativeArea));
+				  $form2.append($('<input type="hidden" name="shippingAddress[zipCode]" />').val(result.shippingContact.postalCode));
+				  $form2.append($('<input type="hidden" name="shippingAddress[phone]" />').val(result.shippingContact.phoneNumber));
+				  $form2.append($('<input type="hidden" name="shippingAddress[countryId]" />').val(233));
+				  $form.append($('<input type="hidden" name="stripeToken" />').val(result.token.id));
+				  $.post('commerce/cart/updateCart', $('#ApplePayCheckout--update').serialize());
+				  $form.get(0).submit();
+
+			  }, function(error) {
+			  	window.location = "/cart?error=" + error.message;
+			  });
+
+			  session.oncancel = function() {
+			    //console.log("User hit the cancel button in the payment window");
+			  };
+
+			  session.begin();
+			}
+	    </script>
+	</li>
+{% endif %}
