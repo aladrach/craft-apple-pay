@@ -56,8 +56,10 @@
 	    <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
 		{% set publishableKey = '' %}
 		{% for method in craft.commerce.paymentMethods %}
+			{# Replace 'method.id' value with whatever the ID of your Apple Pay/Stripe method is. This can be simplified if you only have one payment method. #}
 			{% if method.id == 5 %}
 				{% set publishableKey = method.settings.publishableKey %}
+				
 			{% endif %}
 		{% endfor %}
 	    <script>
@@ -75,6 +77,7 @@
 			  var paymentRequest = {
 			    countryCode: 'US',
 			    currencyCode: 'USD',
+			    // Set your required contact fields here to be passed back to Craft.
 			    requiredShippingContactFields: ["postalAddress","name","phone","email"],
 			    total: {
 			      label: 'SITE NAME HERE',
@@ -87,6 +90,7 @@
 			      completion(ApplePaySession.STATUS_SUCCESS);
 			      var $form = $('#ApplePayCheckout--checkout');
 			      var $form2 = $('#ApplePayCheckout--update');
+			      // Map result fields to Craft fields
 				  $form2.append($('<input type="hidden" name="email" />').val(result.shippingContact.emailAddress));
 				  $form2.append($('<input type="hidden" name="shippingAddress[firstName]" />').val(result.shippingContact.givenName));
 				  $form2.append($('<input type="hidden" name="shippingAddress[lastName]" />').val(result.shippingContact.familyName));
@@ -98,10 +102,12 @@
 				  $form2.append($('<input type="hidden" name="shippingAddress[phone]" />').val(result.shippingContact.phoneNumber));
 				  $form2.append($('<input type="hidden" name="shippingAddress[countryId]" />').val(233));
 				  $form.append($('<input type="hidden" name="stripeToken" />').val(result.token.id));
+				  // Submit update cart to add shipping info, then pay form to submit payment info
 				  $.post('commerce/cart/updateCart', $('#ApplePayCheckout--update').serialize());
 				  $form.get(0).submit();
 
 			  }, function(error) {
+			  	// Return error message to cart page.
 			  	window.location = "/cart?error=" + error.message;
 			  });
 
